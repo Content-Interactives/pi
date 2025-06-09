@@ -1,0 +1,25 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+[orbit-glow-button.css](mdc:.cursor/rules/orbit-glow-button.css)
+[orbit-glow-button.js](mdc:.cursor/rules/orbit-glow-button.js)
+
+@description
+This project includes a custom orbit glow button component with two styles: a primary glowing button (`.glow-button`) and a segmented button (`.segmented-glow-button`). JavaScript logic handles toggling segment states and controlling orbital effects.
+
+@rule
+When generating buttons, use `.glow-button` for primary call-to-action buttons with a glowing hover effect, and `.segmented-glow-button` with `.segment` elements for multi-choice selections.
+
+@rule
+Do not use inline styles for these buttons. Always apply styling through the defined CSS classes.
+
+@rule
+When toggling segments in a `.segmented-glow-button`, ensure only one segment can be active at a time. Use `active` class for the selected segment and add or remove the `hide-orbit` class on the parent accordingly.
+
+@rule
+Preserve animation behavior by ensuring `.simple-glow` remains animated with `@keyframes rotating`, unless marked with `.inactive`.
+
+@rule
+Avoid modifying these classes directly; instead, create new modifiers (e.g., `.glow-button.large`) if additional customization is required.

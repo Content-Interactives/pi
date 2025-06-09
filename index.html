@@ -1,0 +1,1216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cartesian Graph</title>
+    <style>
+        body {
+            margin: 0;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background-color: #f0f0f0;
+        }
+
+        .frame {
+            width: 525px;
+            height: 525px;
+            background-color: white;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            position: relative;
+        }
+
+        canvas {
+            width: 525px;
+            height: 525px;
+        }
+
+        .glow-button { 
+            min-width: 160px; 
+            height: 60px; 
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            border-radius: 16px; 
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            font-weight: 500;
+            font-family: ProximaNova, Helvetica Neue, Arial, Helvetica, sans-serif;
+            color: #fff;
+            z-index: 1;
+            transition: opacity 0.5s;
+            background: #008545;
+            border: none;
+            box-shadow: none;
+        }
+
+        .glow-button::before {
+            content: "";
+            display: block;
+            position: absolute;
+            background: #fff;
+            inset: 2px;
+            border-radius: 14px;
+            z-index: -2;
+            transition: opacity 0.5s;
+        }
+
+        .glow-button::after {
+            content: "";
+            display: block;
+            position: absolute;
+            background: #008545;
+            inset: 8px;
+            border-radius: 10px;
+            z-index: -1;
+            transition: all .3s ease;
+            transition: opacity 0.5s;
+        }
+
+        .glow-button:hover::after {
+            background: rgb(0, 174, 90);
+        }
+
+        @property --r {
+            syntax: '<angle>';
+            inherits: false;
+            initial-value: 0deg;
+        }
+
+        .simple-glow {
+            background: conic-gradient(
+                from var(--r),
+                transparent 0%,
+                rgb(0, 255, 132) 2%,
+                rgb(0, 214, 111) 8%,
+                rgb(0, 174, 90) 12%,
+                rgb(0, 133, 69) 14%,
+                transparent 15%
+            );
+            animation: rotating 3s linear infinite;
+            transition: animation 0.3s ease;
+            transition: opacity 0.5s;
+        }
+
+        .simple-glow:hover {
+            animation: rotating 1.5s linear infinite;
+        }
+
+        @keyframes rotating {
+            0% {
+                --r: 0deg;
+            }
+            100% {
+                --r: 360deg;
+            }
+        }
+
+        .glow-button,
+        .glow-button::before,
+        .glow-button::after,
+        .simple-glow {
+            transition: opacity 0.5s;
+        }
+
+        #center-point {
+            position: absolute;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #008545;
+            left: 0;
+            top: 0;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.5s;
+            z-index: 10;
+        }
+
+        #radius-label {
+            position: absolute;
+            left: 50%;
+            top: calc(50% + 90px); /* moved a little more up */
+            transform: translateX(-50%);
+            font-size: 28px;
+            color: #5750E3;
+            opacity: 0;
+            z-index: 20;
+            font-family: ProximaNova, Helvetica Neue, Arial, Helvetica, sans-serif;
+            font-weight: 600;
+            pointer-events: none;
+        }
+
+        #circumference-label {
+            position: absolute;
+            left: 44%;
+            top: calc(50% - 110px);
+            transform: translateX(-50%);
+            font-size: 26px;
+            color: #5750E3;
+            opacity: 0;
+            z-index: 20;
+            font-family: ProximaNova, Helvetica Neue, Arial, Helvetica, sans-serif;
+            font-weight: 700;
+            pointer-events: none;
+            letter-spacing: 0.5px;
+            transition: opacity 0.5s;
+            white-space: nowrap;
+            text-align: center;
+            width: 100%;
+        }
+        .circ-label-inner {
+            display: inline-block;
+            position: relative;
+        }
+        .circ-label-right {
+            display: inline-block;
+            min-width: 90px;
+            position: absolute;
+            left: 100%;
+            top: 0;
+            text-align: left;
+        }
+
+        #equals-question, #pi-value {
+            margin-left: 8px;
+        }
+
+        #pi-symbol {
+            position: absolute;
+            left: 0;
+            top: 0;
+            opacity: 0;
+            margin-left: 9.5px;
+            font-size: 26px;
+            color: #5750E3;
+            transition: opacity 0.8s ease-in-out;
+            font-weight: 700;
+        }
+
+        #canvas-fade-overlay {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            width: 100%; height: 100%;
+            background: white;
+            opacity: 0;
+            pointer-events: none;
+            z-index: 100;
+            transition: opacity 0.5s;
+        }
+    </style>
+</head>
+<body>
+    <div class="frame">
+        <canvas id="graphCanvas"></canvas>
+        <div id="canvas-fade-overlay"></div>
+        <button class="glow-button simple-glow">Click Me</button>
+        <div id="center-point"></div>
+        <div id="radius-label">Diameter = 1</div>
+        <div id="circumference-label">
+            <span class="circ-label-inner">
+                <span id="circumference-text" style="opacity: 0">Circumference</span>
+                <span class="circ-label-right">
+                    <span id="equals-question" style="opacity: 0">= ?</span>
+                    <span id="pi-value" style="opacity: 0; position: absolute; left: 0; top: 0;">≈ 3.14159</span>
+                    <span id="pi-symbol">= π</span>
+                </span>
+            </span>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('graphCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // Set canvas dimensions to match its display size
+        canvas.width = 525;
+        canvas.height = 525;
+
+        // Graph parameters
+        const xMin = -1;
+        const xMax = 5;
+        const yMin = -1;
+        const yMax = 5;
+
+        // Convert graph coordinates to canvas coordinates
+        function toCanvasX(x) {
+            return ((x - xMin) / (xMax - xMin)) * canvas.width;
+        }
+
+        function toCanvasY(y) {
+            return canvas.height - ((y - yMin) / (yMax - yMin)) * canvas.height;
+        }
+
+        // Draw the graph
+        function drawGraph() {
+            drawGraphBase();
+        }
+
+        // Draw the graph base (everything except the number line)
+        function drawGraphBase() {
+            // Clear canvas
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Remove axes drawing
+            // Remove axis labels
+
+            // Draw grid lines (optional: can also remove if you want a cleaner look)
+            // ctx.strokeStyle = '#ddd';
+            // ctx.lineWidth = 0.5;
+            // for (let x = xMin; x <= xMax; x++) {
+            //     if (x === 0) continue;
+            //     ctx.beginPath();
+            //     ctx.moveTo(toCanvasX(x), 0);
+            //     ctx.lineTo(toCanvasX(x), canvas.height);
+            //     ctx.stroke();
+            // }
+            // for (let y = yMin; y <= yMax; y++) {
+            //     if (y === 0) continue;
+            //     ctx.beginPath();
+            //     ctx.moveTo(0, toCanvasY(y));
+            //     ctx.lineTo(canvas.width, toCanvasY(y));
+            //     ctx.stroke();
+            // }
+        }
+
+        // Animate the circle: center (2,2), radius 0.5, start at (2,2.5), clockwise
+        function animateCircle() {
+            const centerX = toCanvasX(2);
+            const centerY = toCanvasY(2);
+            const radius = Math.abs(toCanvasY(2) - toCanvasY(2.5));
+            const startAngle = -Math.PI / 2; // Top of the circle
+            const endAngleFull = 1.5 * Math.PI; // Full circle (clockwise)
+            const duration = 1200; // Animation duration in ms
+
+            let startTime = null;
+
+            function draw(currentTime) {
+                if (!startTime) startTime = currentTime;
+                const elapsed = currentTime - startTime;
+                const progress = Math.min(elapsed / duration, 1);
+                const currentEndAngle = startAngle + (endAngleFull - startAngle) * progress;
+
+                // Redraw the graph (so the grid/axes stay visible)
+                drawGraph();
+
+                // Draw the animated arc
+                ctx.save();
+                ctx.beginPath();
+                ctx.arc(centerX, centerY, radius, startAngle, currentEndAngle, false);
+                ctx.strokeStyle = '#008545';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+                ctx.restore();
+
+                if (progress < 1) {
+                    requestAnimationFrame(draw);
+                } else {
+                    // Fade in the center point
+                    const point = document.getElementById('center-point');
+                    // Convert (2,2) to canvas coordinates and center the div
+                    const px = toCanvasX(2) - 5; // 5 = half of 10px
+                    const py = toCanvasY(2) - 5;
+                    point.style.left = px + 'px';
+                    point.style.top = py + 'px';
+                    point.style.opacity = '1';
+                    setTimeout(animateDashedLine, 500); // Wait for fade-in to finish
+                }
+            }
+
+            requestAnimationFrame(draw);
+        }
+
+        // Animate the dashed line from (2,2) to (3,2)
+        function animateDashedLine() {
+            const startX = toCanvasX(1.5);
+            const startY = toCanvasY(2);
+            const endX = toCanvasX(2.5);
+            const endY = toCanvasY(2);
+            const duration = 800; // ms
+
+            let startTime = null;
+
+            function drawLine(currentTime) {
+                if (!startTime) startTime = currentTime;
+                const elapsed = currentTime - startTime;
+                const progress = Math.min(elapsed / duration, 1);
+
+                // Redraw the graph and circle
+                drawGraph();
+                // Draw the full circle
+                ctx.save();
+                ctx.beginPath();
+                ctx.arc(toCanvasX(2), toCanvasY(2), Math.abs(toCanvasY(2) - toCanvasY(2.5)), -Math.PI/2, 1.5 * Math.PI, false);
+                ctx.strokeStyle = '#008545';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+                ctx.restore();
+
+                // Draw the center point (keep it visible)
+                const point = document.getElementById('center-point');
+                point.style.opacity = '1';
+
+                // Draw the animated dashed line in green
+                ctx.save();
+                ctx.setLineDash([6, 6]);
+                ctx.beginPath();
+                ctx.moveTo(startX, startY);
+                // Interpolate the end point
+                const currentX = startX + (endX - startX) * progress;
+                ctx.lineTo(currentX, startY);
+                ctx.strokeStyle = '#008545'; // green
+                ctx.globalAlpha = 1;
+                ctx.lineWidth = 2;
+                ctx.stroke();
+                ctx.setLineDash([]);
+                ctx.restore();
+
+                if (progress < 1) {
+                    requestAnimationFrame(drawLine);
+                } else {
+                    // Fade in the blue dashed line and the label
+                    fadeInDashedLineAndLabel();
+                }
+            }
+
+            requestAnimationFrame(drawLine);
+        }
+
+        // Fade in the blue dashed line and the label
+        function fadeInDashedLineAndLabel() {
+            const startX = toCanvasX(1.5);
+            const startY = toCanvasY(2);
+            const endX = toCanvasX(2.5);
+            const endY = toCanvasY(2);
+            const fadeDuration = 600; // ms
+            let startTime = null;
+
+            function drawFade(currentTime) {
+                if (!startTime) startTime = currentTime;
+                const elapsed = currentTime - startTime;
+                const progress = Math.min(elapsed / fadeDuration, 1);
+
+                // Redraw the graph and circle
+                drawGraph();
+                // Draw the full circle
+                ctx.save();
+                ctx.beginPath();
+                ctx.arc(toCanvasX(2), toCanvasY(2), Math.abs(toCanvasY(2) - toCanvasY(2.5)), -Math.PI/2, 1.5 * Math.PI, false);
+                ctx.strokeStyle = '#008545';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+                ctx.restore();
+
+                // Draw the center point (keep it visible)
+                const point = document.getElementById('center-point');
+                point.style.opacity = '1';
+
+                // Draw the full green dashed line (underneath)
+                ctx.save();
+                ctx.setLineDash([6, 6]);
+                ctx.beginPath();
+                ctx.moveTo(startX, startY);
+                ctx.lineTo(endX, endY);
+                ctx.strokeStyle = '#008545';
+                ctx.globalAlpha = 1;
+                ctx.lineWidth = 2;
+                ctx.stroke();
+                ctx.restore();
+
+                // Draw the full blue dashed line (fading in)
+                ctx.save();
+                ctx.setLineDash([6, 6]);
+                ctx.beginPath();
+                ctx.moveTo(startX, startY);
+                ctx.lineTo(endX, endY);
+                ctx.strokeStyle = '#5750E3';
+                ctx.globalAlpha = progress;
+                ctx.lineWidth = 2;
+                ctx.stroke();
+                ctx.setLineDash([]);
+                ctx.restore();
+
+                // Fade in the label
+                const label = document.getElementById('radius-label');
+                label.style.opacity = progress;
+
+                if (progress < 1) {
+                    requestAnimationFrame(drawFade);
+                } else {
+                    label.style.opacity = 1;
+                    // After 2 seconds, start fade out of all together
+                    setTimeout(() => fadeOutAllDashedAndPoint(), 2000);
+                }
+            }
+
+            requestAnimationFrame(drawFade);
+        }
+
+        // Fade out the blue and green dashed lines, the label, and the point together, then animate the blue outline
+        function fadeOutAllDashedAndPoint() {
+            const startX = toCanvasX(1.5);
+            const startY = toCanvasY(2);
+            const endX = toCanvasX(2.5);
+            const endY = toCanvasY(2);
+            const fadeDuration = 600; // ms
+            let startTime = null;
+
+            function drawFadeOut(currentTime) {
+                if (!startTime) startTime = currentTime;
+                const elapsed = currentTime - startTime;
+                const progress = Math.min(elapsed / fadeDuration, 1);
+                const opacity = 1 - progress;
+
+                // Redraw the graph and green circle
+                drawGraph();
+                ctx.save();
+                ctx.beginPath();
+                ctx.arc(toCanvasX(2), toCanvasY(2), Math.abs(toCanvasY(2) - toCanvasY(2.5)), -Math.PI/2, 1.5 * Math.PI, false);
+                ctx.strokeStyle = '#008545';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+                ctx.restore();
+
+                // Draw the center point (fading out)
+                const point = document.getElementById('center-point');
+                point.style.opacity = opacity;
+
+                // Draw the full green dashed line (fading out)
+                ctx.save();
+                ctx.setLineDash([6, 6]);
+                ctx.beginPath();
+                ctx.moveTo(startX, startY);
+                ctx.lineTo(endX, endY);
+                ctx.strokeStyle = '#008545';
+                ctx.globalAlpha = opacity;
+                ctx.lineWidth = 2;
+                ctx.stroke();
+                ctx.restore();
+
+                // Draw the full blue dashed line (fading out)
+                ctx.save();
+                ctx.setLineDash([6, 6]);
+                ctx.beginPath();
+                ctx.moveTo(startX, startY);
+                ctx.lineTo(endX, endY);
+                ctx.strokeStyle = '#5750E3';
+                ctx.globalAlpha = opacity;
+                ctx.lineWidth = 2;
+                ctx.stroke();
+                ctx.setLineDash([]);
+                ctx.restore();
+
+                // Fade out the label
+                const label = document.getElementById('radius-label');
+                label.style.opacity = opacity;
+
+                if (progress < 1) {
+                    requestAnimationFrame(drawFadeOut);
+                } else {
+                    point.style.opacity = 0;
+                    label.style.opacity = 0;
+                    setTimeout(animateBlueCircleOutline, 1000);
+                }
+            }
+
+            requestAnimationFrame(drawFadeOut);
+        }
+
+        // Animate a blue outline over the circle
+        function animateBlueCircleOutline() {
+            const centerX = toCanvasX(2);
+            const centerY = toCanvasY(2);
+            const radius = Math.abs(toCanvasY(2) - toCanvasY(2.5));
+            const startAngle = -Math.PI / 2;
+            const endAngleFull = 1.5 * Math.PI;
+            const duration = 1200; // ms
+
+            let startTime = null;
+
+            function draw(currentTime) {
+                if (!startTime) startTime = currentTime;
+                const elapsed = currentTime - startTime;
+                const progress = Math.min(elapsed / duration, 1);
+                const currentEndAngle = startAngle + (endAngleFull - startAngle) * progress;
+
+                // Redraw the graph and green circle
+                drawGraph();
+                ctx.save();
+                ctx.beginPath();
+                ctx.arc(centerX, centerY, radius, startAngle, endAngleFull, false);
+                ctx.strokeStyle = '#008545';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+                ctx.restore();
+
+                // Draw the blue arc outline (animated)
+                ctx.save();
+                ctx.beginPath();
+                ctx.arc(centerX, centerY, radius, startAngle, currentEndAngle, false);
+                ctx.strokeStyle = '#5750E3';
+                ctx.lineWidth = 3;
+                ctx.stroke();
+                ctx.restore();
+
+                if (progress < 1) {
+                    requestAnimationFrame(draw);
+                } else {
+                    setTimeout(() => {
+                        // Fade in the circumference label container and its text elements
+                        const circumferenceLabel = document.getElementById('circumference-label');
+                        const circumferenceText = document.getElementById('circumference-text');
+                        const equalsQuestion = document.getElementById('equals-question');
+                        
+                        circumferenceLabel.style.opacity = '1';
+                        circumferenceText.style.transition = 'opacity 0.8s ease-in-out';
+                        equalsQuestion.style.transition = 'opacity 0.8s ease-in-out';
+                        circumferenceText.style.opacity = '1';
+                        equalsQuestion.style.opacity = '1';
+                        
+                        setTimeout(animateNumberLine, 1000); // 1 second after text appears
+                    }, 1000); // 1 second delay after blue outline
+                }
+            }
+
+            requestAnimationFrame(draw);
+        }
+
+        // Animate the number line from left to right
+        function animateNumberLine() {
+            const xStart = toCanvasX(-1);
+            const xEnd = toCanvasX(5);
+            const y = toCanvasY(0);
+            const duration = 1000; // ms
+
+            let startTime = null;
+
+            function draw(currentTime) {
+                if (!startTime) startTime = currentTime;
+                const elapsed = currentTime - startTime;
+                const progress = Math.min(elapsed / duration, 1);
+                const currentX = xStart + (xEnd - xStart) * progress;
+
+                // Redraw the graph (without the number line)
+                drawGraphBase();
+                // Redraw the green circle
+                ctx.save();
+                ctx.beginPath();
+                ctx.arc(toCanvasX(2), toCanvasY(2), Math.abs(toCanvasY(2) - toCanvasY(2.5)), -Math.PI/2, 1.5 * Math.PI, false);
+                ctx.strokeStyle = '#008545';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+                ctx.restore();
+                // Redraw the blue outline (full circle)
+                ctx.save();
+                ctx.beginPath();
+                ctx.arc(toCanvasX(2), toCanvasY(2), Math.abs(toCanvasY(2) - toCanvasY(2.5)), -Math.PI/2, 1.5 * Math.PI, false);
+                ctx.strokeStyle = '#5750E3';
+                ctx.lineWidth = 3;
+                ctx.stroke();
+                ctx.restore();
+
+                // Draw the animated number line
+                ctx.save();
+                ctx.beginPath();
+                ctx.moveTo(xStart, y);
+                ctx.lineTo(currentX, y);
+                ctx.strokeStyle = '#222';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+                ctx.restore();
+
+                if (progress < 1) {
+                    requestAnimationFrame(draw);
+                } else {
+                    // Draw the full line and arrows at the end
+                    drawNumberLine();
+                    fadeInNumberLineArrows();
+                }
+            }
+
+            requestAnimationFrame(draw);
+        }
+
+        // Draw number line with arrows
+        function drawNumberLine() {
+            const xStart = toCanvasX(-1);
+            const xEnd = toCanvasX(5);
+            const y = toCanvasY(0);
+
+            // Draw the main line
+            ctx.save();
+            ctx.beginPath();
+            ctx.moveTo(xStart, y);
+            ctx.lineTo(xEnd, y);
+            ctx.strokeStyle = '#222';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            // Draw left arrow
+            drawArrowhead(xStart, y, Math.PI);
+
+            // Draw right arrow
+            drawArrowhead(xEnd, y, 0);
+
+            ctx.restore();
+        }
+
+        // Helper to draw an arrowhead at (x, y) pointing in direction 'angle'
+        function drawArrowhead(x, y, angle) {
+            const size = 10;
+            ctx.save();
+            ctx.translate(x, y);
+            ctx.rotate(angle);
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            ctx.lineTo(-size, -size / 2);
+            ctx.lineTo(-size, size / 2);
+            ctx.closePath();
+            ctx.fillStyle = '#222';
+            ctx.fill();
+            ctx.restore();
+        }
+
+        // Shared tick mark/number variables for animation
+        const tickXs = [0, 1, 2, 3, 4].map(toCanvasX);
+        const y0 = toCanvasY(0);
+        const tickHeight = 18;
+        const numberYOffset = 28;
+
+        // Animate tick marks and numbers at (0,0)-(4,0)
+        function animateTicksAndNumbers() {
+            const tickDuration = 400; // ms per tick
+            let currentTick = 0;
+
+            function drawTick(tickIndex) {
+                let startTime = null;
+                function animateTick(currentTime) {
+                    if (!startTime) startTime = currentTime;
+                    const elapsed = currentTime - startTime;
+                    const progress = Math.min(elapsed / tickDuration, 1);
+
+                    // Redraw everything up to this point
+                    drawGraphBase();
+                    // Redraw the circle and blue outline
+                    const centerX = toCanvasX(2);
+                    const centerY = toCanvasY(2);
+                    const radius = Math.abs(toCanvasY(2) - toCanvasY(2.5));
+                    ctx.save();
+                    ctx.beginPath();
+                    ctx.arc(centerX, centerY, radius, -Math.PI/2, 1.5 * Math.PI, false);
+                    ctx.strokeStyle = '#008545';
+                    ctx.lineWidth = 2;
+                    ctx.stroke();
+                    ctx.restore();
+                    ctx.save();
+                    ctx.beginPath();
+                    ctx.arc(centerX, centerY, radius, -Math.PI/2, 1.5 * Math.PI, false);
+                    ctx.strokeStyle = '#5750E3';
+                    ctx.lineWidth = 3;
+                    ctx.stroke();
+                    ctx.restore();
+                    // Redraw the number line and arrows
+                    drawNumberLine();
+                    // Redraw previous ticks and numbers
+                    for (let i = 0; i < tickIndex; i++) {
+                        drawTickMark(tickXs[i], y0, tickHeight, 1);
+                        drawTickNumber(i, tickXs[i], y0, numberYOffset, 1);
+                    }
+                    // Draw current tick (animated)
+                    drawTickMark(tickXs[tickIndex], y0, tickHeight, progress);
+                    if (progress === 1) {
+                        fadeInTickNumber(tickIndex, tickXs[tickIndex], y0, numberYOffset);
+                    }
+                    if (progress < 1) {
+                        requestAnimationFrame(animateTick);
+                    } else {
+                        // After this tick, animate the next one
+                        currentTick++;
+                        if (currentTick < tickXs.length) {
+                            setTimeout(() => drawTick(currentTick), 200);
+                        }
+                    }
+                }
+                requestAnimationFrame(animateTick);
+            }
+            drawTick(currentTick);
+        }
+
+        // Draw a single tick mark, progress from 0 (not drawn) to 1 (fully drawn)
+        function drawTickMark(x, y0, height, progress) {
+            ctx.save();
+            ctx.beginPath();
+            ctx.moveTo(x, y0 - height/2);
+            ctx.lineTo(x, y0 - height/2 + height * progress);
+            ctx.strokeStyle = '#222';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+            ctx.restore();
+        }
+
+        // Draw the number below the tick
+        function drawTickNumber(i, x, y0, offset, opacity) {
+            ctx.save();
+            ctx.globalAlpha = opacity;
+            ctx.fillStyle = '#222';
+            ctx.font = '18px ProximaNova, Helvetica Neue, Arial, Helvetica, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText(i.toString(), x, y0 + offset);
+            ctx.restore();
+        }
+
+        // Fade in the number below the tick
+        function fadeInTickNumber(i, x, y0, offset) {
+            const fadeDuration = 400; // ms
+            let startTime = null;
+
+            function animateNumber(currentTime) {
+                if (!startTime) startTime = currentTime;
+                const elapsed = currentTime - startTime;
+                const progress = Math.min(elapsed / fadeDuration, 1);
+
+                // Redraw everything up to this point
+                drawGraphBase();
+                // Redraw the circle and blue outline
+                const centerX = toCanvasX(2);
+                const centerY = toCanvasY(2);
+                const radius = Math.abs(toCanvasY(2) - toCanvasY(2.5));
+                ctx.save();
+                ctx.beginPath();
+                ctx.arc(centerX, centerY, radius, -Math.PI/2, 1.5 * Math.PI, false);
+                ctx.strokeStyle = '#008545';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+                ctx.restore();
+                ctx.save();
+                ctx.beginPath();
+                ctx.arc(centerX, centerY, radius, -Math.PI/2, 1.5 * Math.PI, false);
+                ctx.strokeStyle = '#5750E3';
+                ctx.lineWidth = 3;
+                ctx.stroke();
+                ctx.restore();
+                // Redraw the number line and arrows
+                drawNumberLine();
+                // Redraw all previous ticks and numbers
+                for (let j = 0; j < i; j++) {
+                    drawTickMark(tickXs[j], y0, tickHeight, 1);
+                    drawTickNumber(j, tickXs[j], y0, numberYOffset, 1);
+                }
+                // Redraw the current tick
+                drawTickMark(x, y0, tickHeight, 1);
+                // Fade in the number
+                drawTickNumber(i, x, y0, offset, progress);
+
+                if (progress < 1) {
+                    requestAnimationFrame(animateNumber);
+                } else {
+                    // If this is the last number, start the circle move after 0.5s
+                    if (i === 4) {
+                        setTimeout(animateCircleMove, 500);
+                    }
+                }
+            }
+            requestAnimationFrame(animateNumber);
+        }
+
+        // Animate the circle moving its center from (2,2) to (0,1)
+        function animateCircleMove() {
+            const start = { x: 2, y: 2 };
+            const end = { x: 0, y: 0.5 };
+            const duration = 1000; // ms
+            const radius = Math.abs(toCanvasY(2) - toCanvasY(2.5));
+            let startTime = null;
+
+            function draw(currentTime) {
+                if (!startTime) startTime = currentTime;
+                const elapsed = currentTime - startTime;
+                let t = Math.min(elapsed / duration, 1);
+                let progress = -0.5 * (Math.cos(Math.PI * t) - 1); // ease-in-out
+                const cx = start.x + (end.x - start.x) * progress;
+                const cy = start.y + (end.y - start.y) * progress;
+
+                // Redraw everything else
+                drawGraphBase();
+                // Draw the number line and arrows
+                drawNumberLine();
+                // Draw all ticks and numbers
+                for (let i = 0; i < 5; i++) {
+                    drawTickMark(tickXs[i], y0, tickHeight, 1);
+                    drawTickNumber(i, tickXs[i], y0, numberYOffset, 1);
+                }
+                // Draw the moving circle and blue outline
+                const centerX = toCanvasX(cx);
+                const centerY = toCanvasY(cy);
+                ctx.save();
+                ctx.beginPath();
+                ctx.arc(centerX, centerY, radius, -Math.PI/2, 1.5 * Math.PI, false);
+                ctx.strokeStyle = '#008545';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+                ctx.restore();
+                ctx.save();
+                ctx.beginPath();
+                ctx.arc(centerX, centerY, radius, -Math.PI/2, 1.5 * Math.PI, false);
+                ctx.strokeStyle = '#5750E3';
+                ctx.lineWidth = 3;
+                ctx.stroke();
+                ctx.restore();
+
+                if (progress < 1) {
+                    requestAnimationFrame(draw);
+                }
+                else {
+                    // After the circle move, start the blue outline unrolling
+                    setTimeout(animateUnrollBlueOutline, 500);
+                }
+            }
+            requestAnimationFrame(draw);
+        }
+
+        // Animate the blue outline unrolling from the circle onto the number line
+        function animateUnrollBlueOutline() {
+            const start = { x: 0, y: 0.5 };
+            const radius = Math.abs(toCanvasY(2) - toCanvasY(2.5));
+            const circumference = 2 * Math.PI * 0.5; // r = 0.5
+            const numberLineStartX = toCanvasX(0);
+            const numberLineY = toCanvasY(0);
+            const numberLineUnitLength = toCanvasX(1) - toCanvasX(0);
+            const numberLineEndX = numberLineStartX + circumference * numberLineUnitLength; // scale to graph units
+            const duration = 1800; // ms
+            let startTime = null;
+
+            function draw(currentTime) {
+                if (!startTime) startTime = currentTime;
+                const elapsed = currentTime - startTime;
+                const progress = Math.min(elapsed / duration, 1);
+
+                // Redraw everything else
+                drawGraphBase();
+                drawNumberLine();
+                for (let i = 0; i < 5; i++) {
+                    drawTickMark(tickXs[i], y0, tickHeight, 1);
+                    drawTickNumber(i, tickXs[i], y0, numberYOffset, 1);
+                }
+
+                // Calculate the current unwrapped length and circle center
+                const currentLength = progress * circumference;
+                const centerX = toCanvasX(currentLength);
+                const centerY = toCanvasY(0.5);
+
+                // Draw the blue arc (shrinking, clockwise)
+                ctx.save();
+                ctx.beginPath();
+                const arcStart = Math.PI/2;
+                const arcEnd = Math.PI/2 - (1 - progress) * 2 * Math.PI;
+                if (arcEnd < arcStart) {
+                    ctx.arc(centerX, centerY, radius, arcStart, arcEnd, true);
+                }
+                ctx.strokeStyle = '#5750E3';
+                ctx.lineWidth = 3;
+                ctx.stroke();
+                ctx.restore();
+
+                // Draw the blue line (growing) on the number line
+                ctx.save();
+                ctx.beginPath();
+                ctx.moveTo(numberLineStartX, numberLineY);
+                ctx.lineTo(numberLineStartX + (numberLineEndX - numberLineStartX) * progress, numberLineY);
+                ctx.strokeStyle = '#5750E3';
+                ctx.lineWidth = 3;
+                ctx.stroke();
+                ctx.restore();
+
+                if (progress < 1) {
+                    requestAnimationFrame(draw);
+                } else {
+                    setTimeout(fadeInDownArrowWithNumber, 400);
+                }
+            }
+            requestAnimationFrame(draw);
+        }
+
+        // Fade in a down arrow with a number above it at x=0 after the circle unwraps
+        function fadeInDownArrowWithNumber() {
+            const fadeDuration = 600; // ms
+            let fadeStartTime = null;
+            const xStart = toCanvasX(0);
+            const y0 = toCanvasY(0);
+            const tickHeight = 18;
+            const arrowHeight = 24;
+            const arrowTipYOffset = -tickHeight / 2;
+            const numberYOffset = 10;
+
+            // Final circle position after unwrapping
+            const circleCenterX = toCanvasX(Math.PI);
+            const circleCenterY = toCanvasY(0.5);
+            const radius = Math.abs(toCanvasY(2) - toCanvasY(2.5));
+
+            // Blue strip end
+            const numberLineStartX = toCanvasX(0);
+            const numberLineUnitLength = toCanvasX(1) - toCanvasX(0);
+            const circumference = 2 * Math.PI * 0.5;
+            const numberLineEndX = numberLineStartX + circumference * numberLineUnitLength;
+
+            function fadeIn(currentTime) {
+                if (!fadeStartTime) fadeStartTime = currentTime;
+                const elapsed = currentTime - fadeStartTime;
+                const progress = Math.min(elapsed / fadeDuration, 1);
+
+                // Redraw everything up to this point
+                drawGraphBase();
+                drawNumberLine();
+                for (let i = 0; i < 5; i++) {
+                    drawTickMark(tickXs[i], y0, tickHeight, 1);
+                    drawTickNumber(i, tickXs[i], y0, numberYOffset + 18, 1);
+                }
+
+                // Draw the blue line (fully unwrapped)
+                ctx.save();
+                ctx.beginPath();
+                ctx.moveTo(numberLineStartX, y0);
+                ctx.lineTo(numberLineEndX, y0);
+                ctx.strokeStyle = '#5750E3';
+                ctx.lineWidth = 3;
+                ctx.stroke();
+                ctx.restore();
+
+                // Draw the down arrow (fading in, tip on number line)
+                ctx.save();
+                ctx.globalAlpha = progress;
+                ctx.beginPath();
+                ctx.moveTo(xStart, y0 + arrowTipYOffset - arrowHeight);
+                ctx.lineTo(xStart, y0 + arrowTipYOffset);
+                ctx.strokeStyle = '#5750E3';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+                drawArrowhead(xStart, y0 + arrowTipYOffset, 0.5 * Math.PI);
+                ctx.restore();
+
+                // Draw the number above the arrow (fading in)
+                ctx.save();
+                ctx.globalAlpha = progress;
+                ctx.fillStyle = '#5750E3';
+                ctx.font = 'bold 18px ProximaNova, Helvetica Neue, Arial, Helvetica, sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText('0', xStart, y0 + arrowTipYOffset - arrowHeight - numberYOffset);
+                ctx.restore();
+
+                if (progress < 1) {
+                    requestAnimationFrame(fadeIn);
+                } else {
+                    // After fade-in, start moving the arrow and number to the end of the blue strip
+                    setTimeout(() => moveArrowAndNumber(), 200);
+                }
+            }
+            requestAnimationFrame(fadeIn);
+
+            // Animate the arrow and number moving to the end of the blue strip
+            function moveArrowAndNumber() {
+                const moveDuration = 3000; // ms (slower movement)
+                let moveStartTime = null;
+
+                function move(currentTime) {
+                    if (!moveStartTime) moveStartTime = currentTime;
+                    const elapsed = currentTime - moveStartTime;
+                    const progress = Math.min(elapsed / moveDuration, 1);
+                    const x = xStart + (numberLineEndX - xStart) * progress;
+
+                    // Calculate the number value based on position (in number line units)
+                    const numberValue = (x - numberLineStartX) / numberLineUnitLength;
+                    const numberText = numberValue.toFixed(5);
+
+                    // Redraw everything up to this point
+                    drawGraphBase();
+                    drawNumberLine();
+                    for (let i = 0; i < 5; i++) {
+                        drawTickMark(tickXs[i], y0, tickHeight, 1);
+                        drawTickNumber(i, tickXs[i], y0, numberYOffset + 18, 1);
+                    }
+
+                    // Draw the blue line (fully unwrapped)
+                    ctx.save();
+                    ctx.beginPath();
+                    ctx.moveTo(numberLineStartX, y0);
+                    ctx.lineTo(numberLineEndX, y0);
+                    ctx.strokeStyle = '#5750E3';
+                    ctx.lineWidth = 3;
+                    ctx.stroke();
+                    ctx.restore();
+
+                    // Draw the down arrow (moving, tip on number line)
+                    ctx.save();
+                    ctx.globalAlpha = 1;
+                    ctx.beginPath();
+                    ctx.moveTo(x, y0 + arrowTipYOffset - arrowHeight);
+                    ctx.lineTo(x, y0 + arrowTipYOffset);
+                    ctx.strokeStyle = '#5750E3';
+                    ctx.lineWidth = 2;
+                    ctx.stroke();
+                    drawArrowhead(x, y0 + arrowTipYOffset, 0.5 * Math.PI);
+                    ctx.restore();
+
+                    // Draw the number above the arrow (moving, updates as it moves)
+                    ctx.save();
+                    ctx.globalAlpha = 1;
+                    ctx.fillStyle = '#5750E3';
+                    ctx.font = 'bold 18px ProximaNova, Helvetica Neue, Arial, Helvetica, sans-serif';
+                    ctx.textAlign = 'center';
+                    ctx.fillText(numberText, x, y0 + arrowTipYOffset - arrowHeight - numberYOffset);
+                    ctx.restore();
+
+                    if (progress < 1) {
+                        requestAnimationFrame(move);
+                    } else {
+                        // Fade out "= ?" and fade in "≈ 3.14159"
+                        const equalsQuestion = document.getElementById('equals-question');
+                        const piValue = document.getElementById('pi-value');
+                        equalsQuestion.style.transition = 'opacity 0.8s ease-in-out';
+                        piValue.style.transition = 'opacity 0.8s ease-in-out';
+                        equalsQuestion.style.opacity = '0';
+                        piValue.style.opacity = '1';
+
+                        setTimeout(() => {
+                            startPiLoop();
+                            // Show the button after 1.8s (so it appears after the first = π is visible for 1s)
+                            setTimeout(() => {
+                                const glowButton = document.querySelector('.glow-button');
+                                if (glowButton) {
+                                    glowButton.textContent = 'Reset';
+                                    glowButton.style.opacity = '1';
+                                    glowButton.style.pointerEvents = 'auto';
+                                }
+                            }, 1800);
+                        }, 1800); // 1800ms for fade-in + 1000ms wait
+                    }
+                }
+                requestAnimationFrame(move);
+            }
+        }
+
+        // New function to fade in the number line arrows
+        function fadeInNumberLineArrows() {
+            const xStart = toCanvasX(-1);
+            const xEnd = toCanvasX(5);
+            const y = toCanvasY(0);
+            const fadeDuration = 500; // ms
+            let startTime = null;
+
+            function drawFade(currentTime) {
+                if (!startTime) startTime = currentTime;
+                const elapsed = currentTime - startTime;
+                const progress = Math.min(elapsed / fadeDuration, 1);
+
+                // Redraw the number line (fully visible)
+                drawGraphBase();
+                // Redraw the green circle
+                ctx.save();
+                ctx.beginPath();
+                ctx.arc(toCanvasX(2), toCanvasY(2), Math.abs(toCanvasY(2) - toCanvasY(2.5)), -Math.PI/2, 1.5 * Math.PI, false);
+                ctx.strokeStyle = '#008545';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+                ctx.restore();
+                // Redraw the blue outline (full circle)
+                ctx.save();
+                ctx.beginPath();
+                ctx.arc(toCanvasX(2), toCanvasY(2), Math.abs(toCanvasY(2) - toCanvasY(2.5)), -Math.PI/2, 1.5 * Math.PI, false);
+                ctx.strokeStyle = '#5750E3';
+                ctx.lineWidth = 3;
+                ctx.stroke();
+                ctx.restore();
+
+                ctx.save();
+                ctx.beginPath();
+                ctx.moveTo(xStart, y);
+                ctx.lineTo(xEnd, y);
+                ctx.strokeStyle = '#222';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+                ctx.restore();
+
+                // Fade in left arrow
+                ctx.save();
+                ctx.globalAlpha = progress;
+                drawArrowhead(xStart, y, Math.PI);
+                ctx.restore();
+
+                // Fade in right arrow
+                ctx.save();
+                ctx.globalAlpha = progress;
+                drawArrowhead(xEnd, y, 0);
+                ctx.restore();
+
+                if (progress < 1) {
+                    requestAnimationFrame(drawFade);
+                } else {
+                    // After fade-in, proceed to ticks and numbers
+                    setTimeout(animateTicksAndNumbers, 500);
+                }
+            }
+            requestAnimationFrame(drawFade);
+        }
+
+        // Initial draw
+        drawGraphBase();
+
+        // Fade out and remove the button on click
+        const glowButton = document.querySelector('.glow-button');
+        glowButton.addEventListener('click', function() {
+            resetInteractive();
+            this.style.opacity = '0';
+            this.style.pointerEvents = 'none';
+        });
+
+        let piLoopTimeout1 = null;
+        let piLoopTimeout2 = null;
+
+        function startPiLoop() {
+            const piValue = document.getElementById('pi-value');
+            const piSymbol = document.getElementById('pi-symbol');
+            // Start with = π visible, ≈ hidden
+            piValue.style.opacity = '0';
+            piSymbol.style.opacity = '1';
+            function loopToPiValue() {
+                piValue.style.opacity = '1';
+                piSymbol.style.opacity = '0';
+                piLoopTimeout1 = setTimeout(loopToPiSymbol, 1800); // 0.8s fade + 1s visible
+            }
+            function loopToPiSymbol() {
+                piValue.style.opacity = '0';
+                piSymbol.style.opacity = '1';
+                piLoopTimeout2 = setTimeout(loopToPiValue, 1800); // 0.8s fade + 1s visible
+            }
+            // Start the loop with = π visible for 1s, then crossfade
+            piLoopTimeout1 = setTimeout(loopToPiValue, 1000);
+        }
+
+        function resetInteractive() {
+            // Fade out overlays/labels
+            document.getElementById('center-point').style.opacity = '0';
+            document.getElementById('radius-label').style.opacity = '0';
+            const circumferenceLabel = document.getElementById('circumference-label');
+            circumferenceLabel.style.opacity = '0';
+            document.getElementById('circumference-text').style.opacity = '0';
+            document.getElementById('equals-question').style.opacity = '0';
+            document.getElementById('pi-value').style.opacity = '0';
+            document.getElementById('pi-symbol').style.opacity = '0';
+
+            // Fade in the overlay
+            document.getElementById('canvas-fade-overlay').style.opacity = '1';
+
+            // Wait for fade-out, then clear canvas and restart animation
+            setTimeout(() => {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                document.getElementById('canvas-fade-overlay').style.opacity = '0';
+                animateCircle();
+            }, 500); // 500ms matches the CSS transition duration
+        }
+    </script>
+</body>
+</html> 
