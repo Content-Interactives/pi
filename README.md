@@ -17,7 +17,7 @@ This interactive is currently featured in the following locations:
 
 - 📘 **CK-12 Intent Response**  
   - 👉 PRODUCTION: PENDING
-  - 👉 MASTER: [https://www.ck12.org/c/geometry/pi/](https://www.ck12.org/c/geometry/pi/)
+  - 👉 MASTER: [https://test.ck12.co/UZspo2](https://test.ck12.co/UZspo2)
 
 ---
 
