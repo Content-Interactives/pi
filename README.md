@@ -1,29 +1,21 @@
 # Pi Visualization Interactive
 
-This repository contains the code for the **Pi Visualization Interactive**, which helps users understand how the number 3.14 is derived through a geometric demonstration.
+Single-page **static** demo: HTML5 **canvas** draws a geometric approximation of π (inscribed / circumscribed polygons or similar construction per implementation in `index.html`). No bundler or `package.json`.
 
----
+**Live:** [https://content-interactives.github.io/pi/](https://content-interactives.github.io/pi/)
 
-## 🔗 Live Interactive
+## Running locally
 
-You can try the interactive here:  
-👉 [https://content-interactives.github.io/pi/](https://content-interactives.github.io/pi/)
+Open `index.html` in a browser, or serve the folder (canvas and layout assume a normal origin):
 
----
+```bash
+npx --yes serve .
+```
 
-## 🌐 Where This Interactive Is Being Used
+## Deploy
 
-This interactive is currently featured in the following locations:
+Publish the repository root (or the folder containing `index.html`) to static hosting such as GitHub Pages. There is no build step.
 
-- 📘 **CK-12 Intent Response**  
-  - 👉 PRODUCTION: PENDING
-  - 👉 MASTER: [https://test.ck12.co/UZspo2](https://test.ck12.co/UZspo2)
+## Files
 
----
-
-## 🛠️ Developer Notes
-
-- Built with: HTML, CSS, JS (or React, Vite, etc.)
-- Deployed using GitHub Pages
-- See `src/` for core logic and visuals
-
+- `index.html` — markup, styles, and canvas logic (inline script)
